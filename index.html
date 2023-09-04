@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <script src="js/tmi.min.js"></script>
+    <script src="js/confetti.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-confetti@latest/dist/js-confetti.browser.js"></script>
+</head>
+<body style="background-color: #0f0f0f; color: #fff;display:flex;justify-content: center;">
+
+    <!-- <h4 id="timer">0:00</h4> -->
+    <h2 id="word_to_find">Motàdeviner</h2>
+    <h3 id="congrat">Bien joué</h3>
+   
+    <script>
+        const jsConfetti = new JSConfetti();
+        // https://github.com/loonywizard/js-confetti
+        /**
+         * Functions
+         */
+
+
+        //  let confetti = new Confetti('word_to_find');
+
+        // Edit given parameters
+        // confetti.setCount(75);
+        // confetti.setSize(1);
+        // confetti.setPower(25);
+        // confetti.setFade(false);
+        // confetti.destroyTarget(true);
+
+        function getParam(name) {
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            return urlParams.get(name);
+        }
+
+        function pickRandomLetterPos(word, currentLettersPosAlreadyPicked){
+            let randomLetterPos = Math.floor(Math.random() * word.length);
+            if(currentLettersPosAlreadyPicked.includes(randomLetterPos)){ // Si on a déjà choisi cette lettre, on recommence (à optimiser))
+                return pickRandomLetterPos(word, currentLettersPosAlreadyPicked);
+            }else{
+                currentLettersPosAlreadyPicked.push(randomLetterPos);
+                console.log('not picked yet : ' + randomLetterPos);
+                console.log("current letters" + currentLettersPosAlreadyPicked);
+                return randomLetterPos;
+            }
+        }
+
+        let interval;
+
+        function setwordToFind(word, secondsPerLetter){
+            let word_to_find = document.getElementById('word_to_find');
+            word_to_find.style.opacity = 1; //A remettre à 0
+            let i = 0;
+
+            let currentLettersPosAlreadyPicked = [];
+            let wordShown = [];
+            for(let i = 0; i < word.length; i++){ //Création d'un mot template contenant des ___
+                wordShown.push('_');
+            }
+            word_to_find.textContent = wordShown.join('');
+   
+            interval = setInterval(function(){
+                let randomLetterPosPicked = pickRandomLetterPos(word, currentLettersPosAlreadyPicked);
+                wordShown[randomLetterPosPicked] = wordToFind[randomLetterPosPicked];
+                if(wordShown.join('') == wordToFind){
+                    clearInterval(interval);
+                }
+                word_to_find.textContent = wordShown.join('');
+                word_to_find.style.opacity = 1;
+            }, secondsPerLetter * 1000);
+
+        }
+
+        function Win(pseudo){
+            // set congrat text to "Bien joué + pseudo"
+            // set opacity to 1
+            // call confetti
+            document.getElementById('congrat').textContent = 'Bien joué ' + pseudo;
+            document.getElementById('congrat').style.opacity = 1;
+            
+
+
+        }
+
+        /**
+         * Main
+         */
+        const wordToFind = getParam('word');
+        const channel = getParam('channel');
+        const secondsPerLetter = 5;
+        setwordToFind(wordToFind, secondsPerLetter);
+
+        const client = new tmi.Client({  channels: [channel] });
+        client.connect().catch(console.error);
+
+        client.on('message', (channel, tags, message, self) => {
+            if(self) return;
+            console.log(`${tags['display-name']}: ${message}`);
+
+            if(message == wordToFind){
+                // alert('GG !');
+                jsConfetti.addConfetti();
+                Win(tags['display-name']);
+                document.getElementById('word_to_find').textContent = wordToFind;
+                // call event click on word_to_find
+                document.getElementById('word_to_find').click();
+                clearInterval(interval);
+            }else{
+                // console.log('not the word');
+            }
+        });
+
+        client.on('connected', (address, port) => {
+          console.log(`* Connected to ${address}:${port}`);
+        });
+
+        
+    </script>
+
+
+<style>
+    #word_to_find{
+        /* should be big, and centered on the whole page */
+        font-size: 100px;
+        text-align: center;
+        margin-top: 50vh;
+        transform: translateY(-50%);
+    }
+    #timer{
+        /* should be big, and centered on the whole page */
+        font-size: 20px;
+        position: absolute;
+        top: 40%;        
+    }
+
+    #congrat{
+        opacity: 0;
+        /* should be big, and centered on the whole page */
+        font-size: 60px;
+        position: absolute;
+        top: 20%;
+    }
+</style>
+
+</body>
+</html>
